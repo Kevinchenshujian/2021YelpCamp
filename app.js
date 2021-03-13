@@ -3,6 +3,9 @@ const path = require("path");
 const mongoose = require("mongoose");
 const ejsMate = require("ejs-mate");
 const methodOverride = require("method-override");
+const { campgroundSchema } = require("./schemas"); //may have more schemas, so destructuring
+const catchAsync = require("./utils/catchAsync");
+const ExpressError = require("./utils/ExpressError");
 const Campground = require("./models/campground");
 
 mongoose.connect("mongodb://localhost:27017/yelp-camp", {
@@ -28,6 +31,16 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method")); //define a overwrite string
 
+const validateCampground = (req, res, next) => {
+  const { error } = campgroundSchema.validate(req.body);
+  if (error) {
+    const msg = error.details.map((el) => el.message).join(",");
+    throw new ExpressError(msg, 400);
+  } else {
+    next();
+  }
+};
+
 app.get("/", (req, res) => {
   res.render("home");
 });
@@ -42,37 +55,70 @@ app.get("/campgrounds/new", (req, res) => {
 }); //cannot put under the route (:id), will be treated as :id
 
 //When create a new campground,there is no id can be provided, so here post route is /campgrounds
-app.post("/campgrounds", async (req, res) => {
-  const campground = new Campground(req.body.campground);
-  await campground.save();
-  res.redirect(`/campgrounds/${campground._id}`);
-});
+app.post(
+  "/campgrounds",
+  validateCampground,
+  catchAsync(async (req, res, next) => {
+    const campground = new Campground(req.body.campground);
+    await campground.save();
+    res.redirect(`/campgrounds/${campground._id}`);
+  })
+);
 
-app.get("/campgrounds/:id", async (req, res) => {
-  const campground = await Campground.findById(req.params.id);
-  res.render("campgrounds/shows", { campground });
-});
+app.get(
+  "/campgrounds/:id",
+  catchAsync(async (req, res) => {
+    const campground = await Campground.findById(req.params.id);
+    if (!campground) {
+      throw new ExpressError("There is no match in our resource!", 500);
+    }
+    res.render("campgrounds/shows", { campground });
+  })
+);
 
-app.get("/campgrounds/:id/edit", async (req, res) => {
-  const campground = await Campground.findById(req.params.id);
-  res.render("campgrounds/edit", { campground });
-});
+app.get(
+  "/campgrounds/:id/edit",
+  catchAsync(async (req, res) => {
+    const campground = await Campground.findById(req.params.id);
+    res.render("campgrounds/edit", { campground });
+  })
+);
 
 //trick POST as PUT
-app.put("/campgrounds/:id", async (req, res) => {
-  const { id } = req.params;
-  const campground = await Campground.findByIdAndUpdate(id, {
-    ...req.body.campground,
-  });
-  res.redirect(`/campgrounds/${campground._id}`);
-}); //if don have this route, it will rediret to the GET :id route
+app.put(
+  "/campgrounds/:id",
+  validateCampground,
+  catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const campground = await Campground.findByIdAndUpdate(id, {
+      ...req.body.campground,
+    });
+    res.redirect(`/campgrounds/${campground._id}`);
+  })
+); //if don have this route, it will rediret to the GET :id route
 //must have this operation, one of the reason is that the update operation should be performed in this route, cannot be the same as get route or combined with that route
 
 //delete
-app.delete("/campgrounds/:id", async (req, res) => {
-  const { id } = req.params;
-  await Campground.findByIdAndDelete(id);
-  res.redirect("/campgrounds");
+app.delete(
+  "/campgrounds/:id",
+  catchAsync(async (req, res) => {
+    const { id } = req.params;
+    await Campground.findByIdAndDelete(id);
+    res.redirect("/campgrounds");
+  })
+);
+
+//If cannot find a match route, error type will be set
+app.all("*", (req, res, next) => {
+  next(new ExpressError("Page Not Found", 404));
+});
+
+app.use((err, req, res, next) => {
+  const { statusCode = 500 } = err; //default
+  if (!err.message) {
+    err.message = "Something went wrong";
+  }
+  res.status(statusCode).render("error", { err });
 });
 
 app.listen(3000, () => {
