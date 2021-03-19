@@ -1,6 +1,6 @@
 //For server-side validation
 const Joi = require("joi");
-
+//Schema for Joi, not mongo!
 module.exports.campgroundSchema = Joi.object({
   campground: Joi.object({
     title: Joi.string().required(),

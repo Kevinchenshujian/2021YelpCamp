@@ -82,7 +82,6 @@ app.get(
     const campground = await Campground.findById(req.params.id).populate(
       "reviews"
     );
-    console.log(campground);
     if (!campground) {
       throw new ExpressError("There is no match in our resource!", 500);
     }
@@ -133,6 +132,17 @@ app.post(
     await campground.save();
 
     res.redirect(`/campgrounds/${campground._id}`);
+  })
+);
+
+app.delete(
+  "/campgrounds/:id/reviews/:reviewId",
+  catchAsync(async (req, res) => {
+    const { id, reviewId } = req.params;
+    //Mongo: The $pull operator removes from an existing array all instances of a value or values that match a specified condition.
+    await Campground.findByIdAndUpdate(id, { $pull: { reviews: reviewId } });
+    await Review.findByIdAndDelete(reviewId);
+    res.redirect(`/campgrounds/${id}`);
   })
 );
 
