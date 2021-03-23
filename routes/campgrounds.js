@@ -31,6 +31,7 @@ router.post(
   catchAsync(async (req, res, next) => {
     const campground = new Campground(req.body.campground);
     await campground.save();
+    req.flash("success", "You successfully made a new campground!");
     res.redirect(`/campgrounds/${campground._id}`);
   })
 );
@@ -42,7 +43,9 @@ router.get(
       "reviews"
     );
     if (!campground) {
-      throw new ExpressError("There is no match in our resource!", 500);
+      req.flash("error", "Cannot find this campground!");
+      return res.redirect("/campgrounds");
+      //throw new ExpressError("There is no match in our resource!", 500);
     }
     res.render("campgrounds/shows", { campground });
   })
@@ -52,6 +55,10 @@ router.get(
   "/:id/edit",
   catchAsync(async (req, res) => {
     const campground = await Campground.findById(req.params.id);
+    if (!campground) {
+      req.flash("error", "Cannot find this campground!");
+      return res.redirect("/campgrounds");
+    }
     res.render("campgrounds/edit", { campground });
   })
 );
@@ -65,6 +72,7 @@ router.put(
     const campground = await Campground.findByIdAndUpdate(id, {
       ...req.body.campground,
     });
+    req.flash("success", "Successfully updated campgrounds!");
     res.redirect(`/campgrounds/${campground._id}`);
   })
 ); //if don have this route, it will rediret to the GET :id route
@@ -76,6 +84,7 @@ router.delete(
   catchAsync(async (req, res) => {
     const { id } = req.params;
     await Campground.findByIdAndDelete(id);
+    req.flash("success", "Successfully deleted the campground!");
     res.redirect("/campgrounds");
   })
 );
