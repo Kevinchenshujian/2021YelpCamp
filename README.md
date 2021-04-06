@@ -1,5 +1,6 @@
 # 2021YelpCamp
-Self-build and rebuild YelpCamp based on Udemy Course "The Web Developer Bootcamp 2021"
+
+Self-build and rebuild YelpCamp
 
 Language:JavaScript, Html, CSS.
 
